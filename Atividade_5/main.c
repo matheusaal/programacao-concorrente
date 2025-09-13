@@ -10,10 +10,8 @@ pthread_mutex_t mutex;
 pthread_cond_t cond_extra;
 // Variável de condição para as threads ExecutaTarefa 
 pthread_cond_t cond_exec; 
-// Flag para indicar que há múltiplo de 1000 para imprimir
-int multiplo_1000_disponivel = 0;
-// Flag para indicar que a thread extra terminou
-int extra_terminou = 0; 
+// Flag para indicar que existe múltiplo sendo impresso
+int esperando_impressao = 0;
 
 void *ExecutaTarefa (void *arg) {
     long int id = (long int) arg;
@@ -23,23 +21,28 @@ void *ExecutaTarefa (void *arg) {
 
         // Entrada na seção crítica
         pthread_mutex_lock(&mutex);
+
+        // Se tiver thread extra imprimindo, dorme
+        while(esperando_impressao) {
+            pthread_cond_wait(&cond_exec, &mutex);
+        }
         soma++; //incrementa a variavel compartilhada
         
         // Verifica se soma é múltiplo de 1000
         if (soma % 1000 == 0) {
 
-            // Sinaliza que há um múltiplo de 1000 disponível
-            multiplo_1000_disponivel = 1;
+            // Sinaliza que vai ocorrer impressão
+            esperando_impressao = 1;
 
             // Acorda a thread extra para imprimir
             pthread_cond_signal(&cond_extra);
 
-            // Espera a thread extra processar o múltiplo
-            while (multiplo_1000_disponivel == 1 && !extra_terminou) {
+            // Espera a thread extra imprimir o múltiplo
+            while (esperando_impressao) {
                 pthread_cond_wait(&cond_exec, &mutex);
             }
         }
-        
+
         // Saída da seção crítica
         pthread_mutex_unlock(&mutex);
     }
@@ -56,30 +59,22 @@ void *extra (void *args) {
     pthread_mutex_lock(&mutex);
     
     // Continua enquanto não processou todos os múltiplos esperados
-    while (1) {
+    while (soma < 100000 * n_threads) {
 
         // Espera por um múltiplo de 1000
-        while (multiplo_1000_disponivel == 0 && soma < 100000 * n_threads) {
+        while (!esperando_impressao) {
             pthread_cond_wait(&cond_extra, &mutex);
-        }
-        
-        // Verifica se todas as threads terminaram
-        if (soma >= 100000 * n_threads) {
-            break;
         }
 
         // Imprime o múltiplo de 1000
         printf("Soma = %ld\n", soma);
 
-        // Marca que o múltiplo foi processado
-        multiplo_1000_disponivel = 0;
+        // Marca que o múltiplo foi impresso
+        esperando_impressao = 0;
         
         // Libera as threads ExecutaTarefa para continuar
         pthread_cond_broadcast(&cond_exec);
     }
-    
-    // Marca que a thread extra terminou
-    extra_terminou = 1;
     
     // Libera qualquer thread que esteja esperando
     pthread_cond_broadcast(&cond_exec);
@@ -115,18 +110,18 @@ int main(int argc, char *argv[]) {
     pthread_cond_init(&cond_extra, NULL);
     pthread_cond_init(&cond_exec, NULL);
     
+    // Cria thread que loga os múltiplos de 1000
+    if (pthread_create(&tid[nthreads], NULL, extra, (void*)(long int)nthreads)) {
+        printf("--ERRO: pthread_create()\n");
+        exit(-1);
+    }
+
     // Cria as threads que executam a tarefa
     for(long int t=0; t<nthreads; t++) {
         if (pthread_create(&tid[t], NULL, ExecutaTarefa, (void *)t)) {
             printf("--ERRO: pthread_create()\n");
             exit(-1);
         }
-    }
-    
-    // Cria thread que loga os múltiplos de 1000
-    if (pthread_create(&tid[nthreads], NULL, extra, (void*)(long int)nthreads)) {
-        printf("--ERRO: pthread_create()\n");
-        exit(-1);
     }
     
     // Espera até que as threads terminem
