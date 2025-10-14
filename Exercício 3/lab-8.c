@@ -4,7 +4,10 @@
 #include <semaphore.h>
 #include <math.h>
 
+// Semáforos usados pelo programa
 sem_t bufferPreenchido, bufferVazio, mutexCons;
+
+// Variáveis globais usadas pelo programa
 int n, m, nthreads, *Buffer, *Sequencia;
 
 // Função auxiliar que verifica primalidade dada pela professora
