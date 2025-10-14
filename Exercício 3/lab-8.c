@@ -4,8 +4,6 @@
 #include <semaphore.h>
 #include <math.h>
 
-#define LIMITE 100
-
 sem_t bufferPreenchido, bufferVazio, mutexCons;
 int n, m, nthreads, *Buffer, *Sequencia;
 
@@ -20,16 +18,13 @@ int ehPrimo(long long int n) {
     return 1;
 }
 
-// Função auxiliar para gerar um array de n inteiros aleatórios
+// Função auxiliar para gerar um array de n inteiros consecutivos entre 0 e n-1
 int* gerarSequencia(int n) {
     int* sequencia = malloc(n * sizeof(int));
     if (!sequencia) return NULL;
     
-    // Inicializa gerador de números aleatórios
-    srand(time(NULL));
-
     for (int i = 0; i < n; i++) {
-        sequencia[i] = rand() % (LIMITE + 1);  // Números aleatórios de 0 a LIMITE
+        sequencia[i] = i;
     }
     return sequencia;
 }
